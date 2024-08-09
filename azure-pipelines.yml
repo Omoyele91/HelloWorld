@@ -1,0 +1,149 @@
+trigger:
+  branches:
+    include:
+      - dev
+      - uat
+      - pilot
+      - prod
+pool:
+  vmImageName: 'ubuntu-latest'
+
+variables:
+  tag: '$(Build.BuildId)'
+  buildConfiguration: 'Release'
+
+  devEnv: 'dev'
+  uatEnv: 'uat'
+  pilotEnv: 'pilot'
+  prodEnv: 'prod'
+
+  dockerIdDev: stanbicibtcdev
+  dockerIdUat: stanbicibtcuat
+  dockerIdPilot: stanbicibtcpilot
+  dockerIdProd: stanbicibtcprod
+
+  imageNameDev: integration-channel-bua-collection-service-dev
+  imageNameUat: integration-channel-bua-collection-service-uat
+  imageNamePilot: integration-channel-bua-collection-service-pilot
+  imageNameProd: integration-channel-bua-collection-service-prod
+
+  imageName: integration-channel-bua-collection-service
+  imageVersion: |
+    $(Build.BuildId)
+
+stages:
+  - stage: BuildDev
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/dev'))
+    displayName: Dev
+    jobs:
+      - job: Build
+        displayName: BuildDev
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Maven@3
+            displayName: Build Docker image
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'spring-boot:build-image'
+              publishJUnitResults: false
+              jdkVersionOption: '17'
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                export BUILD_ID=$(Build.BuildId)
+                docker login -u $(dockerIdDev) -p $(dockerPasswordDev) $(dockerIdDev).azurecr.io
+                docker compose -f docker-compose.yaml build
+                docker tag $(dockerIdDev).azurecr.io/$(devEnv)/$(imageName):$(Build.BuildId) $(dockerIdDev).azurecr.io/$(devEnv)/$(imageName)
+                docker push $(dockerIdDev).azurecr.io/$(devEnv)/$(imageName):$(imageVersion)
+                docker compose -f docker-compose.yaml push
+              displayName: 'Build and push Docker images for Dev Environment to Azure Container Registry'
+
+  - stage: BuildUat
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/uat'))
+    displayName: Uat
+    jobs:
+      - job: Build
+        displayName: BuildUat
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Maven@3
+            displayName: Build Docker image
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'spring-boot:build-image'
+              publishJUnitResults: false
+              jdkVersionOption: '17'
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                export BUILD_ID=$(Build.BuildId)
+                docker login -u $(dockerIdUat) -p $(dockerPasswordUat) $(dockerIdUat).azurecr.io
+                docker compose -f docker-compose.yaml build
+                docker tag $(dockerIdUat).azurecr.io/$(uatEnv)/$(imageName):$(Build.BuildId) $(dockerIdUat).azurecr.io/$(uatEnv)/$(imageName)
+                docker push $(dockerIdUat).azurecr.io/$(uatEnv)/$(imageName)
+                docker compose -f docker-compose.yaml push
+              displayName: 'Build and push Docker images for UAT Environment to Azure Container Registry'
+
+  - stage: BuildPilot
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/pilot'))
+    displayName: Pilot
+    jobs:
+      - job: Build
+        displayName: BuildPilot
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Maven@3
+            displayName: Build Docker image
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'spring-boot:build-image'
+              publishJUnitResults: false
+              jdkVersionOption: '17'
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                export BUILD_ID=$(Build.BuildId)
+                docker login -u $(dockerIdPilot) -p $(dockerPasswordPilot) $(dockerIdPilot).azurecr.io
+                docker compose -f docker-compose.yaml build
+                docker tag $(dockerIdPilot).azurecr.io/$(pilotEnv)/$(imageName):$(Build.BuildId) $(dockerIdPilot).azurecr.io/$(pilotEnv)/$(imageName)          
+                docker push $(dockerIdPilot).azurecr.io/$(pilotEnv)/$(imageName):$(imageVersion)
+                docker compose -f docker-compose.yaml push
+              displayName: 'Build and push Docker images for Pilot Environment to Azure Container Registry'
+
+  - stage: BuildProd
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/prod'))
+    displayName: Prod
+    jobs:
+      - job: Build
+        displayName: BuildProd
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Maven@3
+            displayName: Build Docker image
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'spring-boot:build-image'
+              publishJUnitResults: false
+              jdkVersionOption: '17'
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                export BUILD_ID=$(Build.BuildId)
+                docker login -u $(dockerIdProd) -p $(dockerPasswordProd) $(dockerIdProd).azurecr.io
+                docker compose -f docker-compose.yaml build
+                docker tag $(dockerIdProd).azurecr.io/$(prodEnv)/$(imageName):$(Build.BuildId) $(dockerIdProd).azurecr.io/$(prodEnv)/$(imageName)
+                docker push $(dockerIdProd).azurecr.io/$(prodEnv)/$(imageName):$(imageVersion)
+                docker compose -f docker-compose.yaml push
+              displayName: 'Build and push Docker images for Prod Environment to Azure Container Registry'

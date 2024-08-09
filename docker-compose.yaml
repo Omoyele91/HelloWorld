@@ -1,0 +1,20 @@
+version: '2'
+
+services:
+  integration-channel-composite-collection-service:
+    image: stanbicibtcuat.azurecr.io/uat/integration-channel-bua-collection-service:${BUILD_ID}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    build:
+      context: ./
+      args:
+        BUILD_ID: ${BUILD_ID}
+      dockerfile: Dockerfile
+    volumes:
+      - /data/integration-channel-bua-collection-service
+    ports:
+      - "8080:8080"
